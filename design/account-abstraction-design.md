@@ -16,16 +16,18 @@
 2. 执行所有OP；在执行的过程中，如果执行revert，则调用payMaster#postOp方法， 并将剩余的gas deposit到EntryPoint；
 3. 补偿所有OP的收集fee到调用者的收益地址；
 
+**handleAggregatedOps执行的核心逻辑和handleOps一样，只不过，增加了批量op的签名检查；**
+
 ## Paymaster
 
-1. TokenPaymaster
+1. TokenPaymaster：基于oracle和swap的paymaster
 * _validatePaymasterUserOp：校验paymaster OP，计算交易需要的token数量，并转账到paymaster；
 * _postOp：执行post任务，比如更新token价格，退还剩余的token，如果由于gas不足revert，超过preGas的，需要补足gas；如果需要则将token swap为weth，并提现，质押到EP
 
 
+2. LegacyTokenPaymaster：
 
 
-**handleAggregatedOps执行的核心逻辑和handleOps一样，只不过，增加了批量op的签名检查；**
 
 
 
