@@ -42,7 +42,7 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
     }
 
     /**
-     * Validate a user operation.
+     * Validate a user operation. 校验OP
      * @param userOp     - The user operation.
      * @param userOpHash - The hash of the user operation.
      * @param maxCost    - The maximum cost of the user operation.
@@ -68,7 +68,7 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
      * Post-operation handler.
      * (verified to be called only through the entryPoint)
      * @dev If subclass returns a non-empty context from validatePaymasterUserOp,
-     *      it must also implement this method.
+     *      it must also implement this method. 如果validatePaymasterUserOp返回的为非空context，则必须实现方法；
      * @param mode          - Enum with the following options:
      *                        opSucceeded - User operation succeeded.
      *                        opReverted  - User op reverted. The paymaster still has to pay for gas.

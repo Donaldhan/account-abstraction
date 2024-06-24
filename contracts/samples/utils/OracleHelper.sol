@@ -5,11 +5,11 @@ pragma solidity ^0.8.23;
 
 import "./IOracle.sol";
 
-/// @title Helper functions for dealing with various forms of price feed oracles.
-/// @notice Maintains a price cache and updates the current price if needed.
-/// In the best case scenario we have a direct oracle from the token to the native asset.
-/// Also support tokens that have no direct price oracle to the native asset.
-/// Sometimes oracles provide the price in the opposite direction of what we need in the moment.
+/// @title Helper functions for dealing with various forms of price feed oracles. 处理不同喂价Oracles
+/// @notice Maintains a price cache and updates the current price if needed. 维持当前价格，如果需要，则更新
+/// In the best case scenario we have a direct oracle from the token to the native asset. 最好的方法，我们有一个直接token到本地资产的oracle
+/// Also support tokens that have no direct price oracle to the native asset. 同时也支持没有直接token到本地资产的oracle；
+/// Sometimes oracles provide the price in the opposite direction of what we need in the moment. 有时候，oracle提供我们相反的方向
 abstract contract OracleHelper {
 
     event TokenPriceUpdated(uint256 currentPrice, uint256 previousPrice, uint256 cachedPriceTimestamp);
@@ -18,16 +18,17 @@ abstract contract OracleHelper {
 
     struct OracleHelperConfig {
 
-        /// @notice The price cache will be returned without even fetching the oracles for this number of seconds
+        /// @notice The price cache will be returned without even fetching the oracles for this number of seconds 价格缓存时间
         uint48 cacheTimeToLive;
 
-        /// @notice The maximum acceptable age of the price oracle round
+        /// @notice The maximum acceptable age of the price oracle round 预言机价格最大age
         uint48 maxOracleRoundAge;
 
-        /// @notice The Oracle contract used to fetch the latest token prices
+        /// @notice The Oracle contract used to fetch the latest token prices 价格token oralce
         IOracle tokenOracle;
 
         /// @notice The Oracle contract used to fetch the latest native asset prices. Only needed if tokenToNativeOracle flag is not set.
+        /// 本地oracle
         IOracle nativeOracle;
 
         /// @notice If 'true' we will fetch price directly from tokenOracle
@@ -40,15 +41,15 @@ abstract contract OracleHelper {
         /// @notice 'false' if price is bridging-asset-per-native-asset, 'true' if price is native-asset-per-bridging-asset
         bool nativeOracleReverse;
 
-        /// @notice The price update threshold percentage from PRICE_DENOMINATOR that triggers a price update (1e26 = 100%)
+        /// @notice The price update threshold percentage from PRICE_DENOMINATOR that triggers a price update (1e26 = 100%) 价格更新百分比
         uint256 priceUpdateThreshold;
 
     }
 
-    /// @notice The cached token price from the Oracle, always in (native-asset-per-token) * PRICE_DENOMINATOR format
+    /// @notice The cached token price from the Oracle, always in (native-asset-per-token) * PRICE_DENOMINATOR format 缓冲价格
     uint256 public cachedPrice;
 
-    /// @notice The timestamp of a block when the cached price was updated
+    /// @notice The timestamp of a block when the cached price was updated 缓存价格时间戳
     uint48 public cachedPriceTimestamp;
 
     OracleHelperConfig private oracleHelperConfig;
@@ -82,7 +83,7 @@ abstract contract OracleHelper {
         }
     }
 
-    /// @notice Updates the token price by fetching the latest price from the Oracle.
+    /// @notice Updates the token price by fetching the latest price from the Oracle. 更新价格
     /// @param force true to force cache update, even if called after short time or the change is lower than the update threshold.
     /// @return newPrice the new cached token price
     function updateCachedPrice(bool force) public returns (uint256) {
@@ -96,9 +97,11 @@ abstract contract OracleHelper {
         IOracle nativeOracle = oracleHelperConfig.nativeOracle;
 
         uint256 _cachedPrice = cachedPrice;
+        //抓取token价格
         uint256 tokenPrice = fetchPrice(tokenOracle);
         uint256 nativeAssetPrice = 1;
         // If the 'TokenOracle' returns the price in the native asset units there is no need to fetch native asset price
+        // 如果token oracle 返回的为以原生代币资产单元对应的价格，则不需要抓取原生资产价格；
         if (!oracleHelperConfig.tokenToNativeOracle) {
             nativeAssetPrice = fetchPrice(nativeOracle);
         }
@@ -123,7 +126,7 @@ abstract contract OracleHelper {
 
     /**
      * Calculate the effective price of the selected token denominated in native asset.
-     *
+     * 计算有效价格
      * @param tokenPrice - the price of the token relative to a native asset or a bridging asset like the U.S. dollar.
      * @param nativeAssetPrice - the price of the native asset relative to a bridging asset or 1 if no bridging needed.
      * @param tokenOracleReverse - flag indicating direction of the "tokenPrice".
@@ -156,7 +159,7 @@ abstract contract OracleHelper {
         }
     }
 
-    /// @notice Fetches the latest price from the given Oracle.
+    /// @notice Fetches the latest price from the given Oracle. 抓取最近oracle的价格；
     /// @dev This function is used to get the latest price from the tokenOracle or nativeOracle.
     /// @param _oracle The Oracle contract to fetch the price from.
     /// @return price The latest price fetched from the Oracle.

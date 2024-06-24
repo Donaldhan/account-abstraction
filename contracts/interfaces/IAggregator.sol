@@ -8,7 +8,7 @@ import "./PackedUserOperation.sol";
  */
 interface IAggregator {
     /**
-     * Validate aggregated signature.
+     * Validate aggregated signature. 校验聚合签名
      * Revert if the aggregated signature does not match the given list of operations.
      * @param userOps   - Array of UserOperations to validate the signature for.
      * @param signature - The aggregated signature.
@@ -22,10 +22,11 @@ interface IAggregator {
      * Validate signature of a single userOp.
      * This method should be called by bundler after EntryPointSimulation.simulateValidation() returns
      * the aggregator this account uses.
+     * 此方法在EntryPointSimulation.simulateValidation()之后，由bundler调用
      * First it validates the signature over the userOp. Then it returns data to be used when creating the handleOps.
      * @param userOp        - The userOperation received from the user.
      * @return sigForUserOp - The value to put into the signature field of the userOp when calling handleOps.
-     *                        (usually empty, unless account and aggregator support some kind of "multisig".
+     *                        (usually empty, unless account and aggregator support some kind of "multisig". 通常为空，除非聚合器支持多签
      */
     function validateUserOpSignature(
         PackedUserOperation calldata userOp
@@ -35,6 +36,7 @@ interface IAggregator {
      * Aggregate multiple signatures into a single value.
      * This method is called off-chain to calculate the signature to pass with handleOps()
      * bundler MAY use optimized custom code perform this aggregation.
+     * 聚合OP 签名
      * @param userOps              - Array of UserOperations to collect the signatures from.
      * @return aggregatedSignature - The aggregated signature.
      */

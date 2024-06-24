@@ -22,9 +22,9 @@ interface IEntryPoint is IStakeManager, INonceManager {
      * @param paymaster     - If non-null, the paymaster that pays for this request.
      * @param nonce         - The nonce value from the request.
      * @param success       - True if the sender transaction succeeded, false if reverted.
-     * @param actualGasCost - Actual amount paid (by account or paymaster) for this UserOperation.
+     * @param actualGasCost - Actual amount paid (by account or paymaster) for this UserOperation. 支付OP的gas
      * @param actualGasUsed - Total gas used by this UserOperation (including preVerification, creation,
-     *                        validation and execution).
+     *                        validation and execution). 总gas，包含预验证，创建，验证和执行；
      */
     event UserOperationEvent(
         bytes32 indexed userOpHash,
@@ -37,7 +37,7 @@ interface IEntryPoint is IStakeManager, INonceManager {
     );
 
     /**
-     * Account "sender" was deployed.
+     * Account "sender" was deployed. 账户部署事件
      * @param userOpHash - The userOp that deployed this account. UserOperationEvent will follow.
      * @param sender     - The account that is deployed
      * @param factory    - The factory used to deploy this account (in the initCode)
@@ -80,6 +80,7 @@ interface IEntryPoint is IStakeManager, INonceManager {
 
     /**
      * UserOp consumed more than prefund. The UserOperation is reverted, and no refund is made.
+     * 预付gas不足
      * @param userOpHash   - The request unique identifier.
      * @param sender       - The sender of this request.
      * @param nonce        - The nonce used in the request.
@@ -98,6 +99,7 @@ interface IEntryPoint is IStakeManager, INonceManager {
 
     /**
      * Signature aggregator used by the following UserOperationEvents within this bundle.
+     * bundle 聚合交易签名
      * @param aggregator - The aggregator used for the following UserOperationEvents.
      */
     event SignatureAggregatorChanged(address indexed aggregator);
@@ -107,6 +109,7 @@ interface IEntryPoint is IStakeManager, INonceManager {
      * Should be caught in off-chain handleOps simulation and not happen on-chain.
      * Useful for mitigating DoS attempts against batchers or for troubleshooting of factory/account/paymaster reverts.
      * NOTE: If simulateValidation passes successfully, there should be no reason for handleOps to fail on it.
+     * handleOps失败，一般在链下的simulateValidation失败时，抛出，一旦成功，handleOps必须成功
      * @param opIndex - Index into the array of ops to the failed one (in simulateValidation, this is always zero).
      * @param reason  - Revert reason. The string starts with a unique code "AAmn",
      *                  where "m" is "1" for factory, "2" for account and "3" for paymaster issues,
@@ -134,7 +137,7 @@ interface IEntryPoint is IStakeManager, INonceManager {
     // Return value of getSenderAddress.
     error SenderAddressResult(address sender);
 
-    // UserOps handled, per aggregator.
+    // UserOps handled, per aggregator. op聚合器
     struct UserOpsPerAggregator {
         PackedUserOperation[] userOps;
         // Aggregator address
@@ -144,12 +147,13 @@ interface IEntryPoint is IStakeManager, INonceManager {
     }
 
     /**
+     * 执行批量OP
      * Execute a batch of UserOperations.
      * No signature aggregator is used.
      * If any account requires an aggregator (that is, it returned an aggregator when
      * performing simulateValidation), then handleAggregatedOps() must be used instead.
      * @param ops         - The operations to execute.
-     * @param beneficiary - The address to receive the fees.
+     * @param beneficiary - The address to receive the fees. 接收fee的地址
      */
     function handleOps(
         PackedUserOperation[] calldata ops,
@@ -157,6 +161,7 @@ interface IEntryPoint is IStakeManager, INonceManager {
     ) external;
 
     /**
+     * 执行聚合签名的OP
      * Execute a batch of UserOperation with Aggregators
      * @param opsPerAggregator - The operations to execute, grouped by aggregator (or address(0) for no-aggregator accounts).
      * @param beneficiary      - The address to receive the fees.
@@ -167,7 +172,7 @@ interface IEntryPoint is IStakeManager, INonceManager {
     ) external;
 
     /**
-     * Generate a request Id - unique identifier for this request.
+     * Generate a request Id - unique identifier for this request. 生产op请求id
      * The request ID is a hash over the content of the userOp (except the signature), the entrypoint and the chainid.
      * @param userOp - The user operation to generate the request ID for.
      * @return hash the hash of this UserOperation
@@ -177,8 +182,8 @@ interface IEntryPoint is IStakeManager, INonceManager {
     ) external view returns (bytes32);
 
     /**
-     * Gas and return values during simulation.
-     * @param preOpGas         - The gas used for validation (including preValidationGas)
+     * Gas and return values during simulation. simulateValidation 返回值
+     * @param preOpGas         - The gas used for validation (including preValidationGas) 包含preValidationGas的验证gas
      * @param prefund          - The required prefund for this operation
      * @param accountValidationData   - returned validationData from account.
      * @param paymasterValidationData - return validationData from paymaster.

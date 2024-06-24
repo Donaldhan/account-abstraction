@@ -13,6 +13,7 @@ import "./SimpleAccount.sol";
  * This way, the entryPoint.getSenderAddress() can be called either before or after the account is created.
  */
 contract SimpleAccountFactory {
+    //业务逻辑账户
     SimpleAccount public immutable accountImplementation;
 
     constructor(IEntryPoint _entryPoint) {
@@ -20,7 +21,7 @@ contract SimpleAccountFactory {
     }
 
     /**
-     * create an account, and return its address.
+     * create an account, and return its address. 创建账户
      * returns the address even if the account is already deployed.
      * Note that during UserOperation execution, this method is called only if the account is not deployed.
      * This method returns an existing account address so that entryPoint.getSenderAddress() would work even after account creation

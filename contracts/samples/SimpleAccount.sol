@@ -50,7 +50,7 @@ contract SimpleAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, In
     }
 
     /**
-     * execute a transaction (called directly from owner, or by entryPoint)
+     * execute a transaction (called directly from owner, or by entryPoint) 执行交易
      * @param dest destination address to call
      * @param value the value to pass in this call
      * @param func the calldata to pass in this call
@@ -61,7 +61,7 @@ contract SimpleAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, In
     }
 
     /**
-     * execute a sequence of transactions
+     * execute a sequence of transactions 执行一系列交易
      * @dev to reduce gas consumption for trivial case (no value), use a zero-length array to mean zero value
      * @param dest an array of destination addresses
      * @param value an array of values to pass to each call. can be zero-length for no-value calls
@@ -101,7 +101,7 @@ contract SimpleAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, In
         require(msg.sender == address(entryPoint()) || msg.sender == owner, "account: not Owner or EntryPoint");
     }
 
-    /// implement template method of BaseAccount
+    /// implement template method of BaseAccount 校验签名
     function _validateSignature(PackedUserOperation calldata userOp, bytes32 userOpHash)
     internal override virtual returns (uint256 validationData) {
         bytes32 hash = MessageHashUtils.toEthSignedMessageHash(userOpHash);

@@ -25,7 +25,7 @@ uint256 constant SIG_VALIDATION_SUCCESS = 0;
  * @param aggregator  - address(0) - The account validated the signature by itself.
  *                      address(1) - The account failed to validate the signature.
  *                      otherwise - This is an address of a signature aggregator that must
- *                                  be used to validate the signature.
+ *                                  be used to validate the signature.  //校验签名
  * @param validAfter  - This UserOp is valid only after this timestamp.
  * @param validaUntil - This UserOp is valid only up to this timestamp.
  */
@@ -36,7 +36,7 @@ struct ValidationData {
 }
 
 /**
- * Extract sigFailed, validAfter, validUntil.
+ * Extract sigFailed, validAfter, validUntil. 解析校验数据
  * Also convert zero validUntil to type(uint48).max.
  * @param validationData - The packed validation data.
  */
@@ -53,7 +53,7 @@ function _parseValidationData(
 }
 
 /**
- * Helper to pack the return value for validateUserOp.
+ * Helper to pack the return value for validateUserOp. 打包校验数据
  * @param data - The ValidationData to pack.
  */
 function _packValidationData(

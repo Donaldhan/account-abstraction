@@ -10,8 +10,9 @@ import "./UserOperationLib.sol";
 
 /**
  * Basic account implementation.
- * This contract provides the basic logic for implementing the IAccount interface - validateUserOp
+ * This contract provides the basic logic for implementing the IAccount interface - validateUserOp 
  * Specific account implementation should inherit it and provide the account-specific logic.
+ * 基础账户，实现了validateUserOp
  */
 abstract contract BaseAccount is IAccount {
     using UserOperationLib for PackedUserOperation;
@@ -37,8 +38,11 @@ abstract contract BaseAccount is IAccount {
         bytes32 userOpHash,
         uint256 missingAccountFunds
     ) external virtual override returns (uint256 validationData) {
+        //check ep
         _requireFromEntryPoint();
+        //check sign
         validationData = _validateSignature(userOp, userOpHash);
+        //chek nonce
         _validateNonce(userOp.nonce);
         _payPrefund(missingAccountFunds);
     }
@@ -58,7 +62,7 @@ abstract contract BaseAccount is IAccount {
      * @param userOp          - Validate the userOp.signature field.
      * @param userOpHash      - Convenient field: the hash of the request, to check the signature against.
      *                          (also hashes the entrypoint and chain id)
-     * @return validationData - Signature and time-range of this operation.
+     * @return validationData - Signature and time-range of this operation. 签名结果及签名有效校验范围；
      *                          <20-byte> aggregatorOrSigFail - 0 for valid signature, 1 to mark signature failure,
      *                                    otherwise, an address of an aggregator contract.
      *                          <6-byte> validUntil - last timestamp this operation is valid. 0 for "indefinite"
@@ -98,7 +102,7 @@ abstract contract BaseAccount is IAccount {
      * it will not be required to send again).
      * @param missingAccountFunds - The minimum value this method should send the entrypoint.
      *                              This value MAY be zero, in case there is enough deposit,
-     *                              or the userOp has a paymaster.
+     *                              or the userOp has a paymaster. 发送给ep的最小value，如果存款足够，userOp拥有paymaster，则为0
      */
     function _payPrefund(uint256 missingAccountFunds) internal virtual {
         if (missingAccountFunds != 0) {

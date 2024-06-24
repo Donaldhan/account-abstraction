@@ -3,8 +3,8 @@ pragma solidity >=0.7.5;
 
 /**
  * Manage deposits and stakes.
- * Deposit is just a balance used to pay for UserOperations (either by a paymaster or an account).
- * Stake is value locked for at least "unstakeDelay" by the staked entity.
+ * Deposit is just a balance used to pay for UserOperations (either by a paymaster or an account).用于支付OP，可能是一个账户，也可以是paymaster
+ * Stake is value locked for at least "unstakeDelay" by the staked entity. 存在一定unstakeDelay的质押
  */
 interface IStakeManager {
     event Deposited(address indexed account, uint256 totalDeposit);
@@ -15,14 +15,14 @@ interface IStakeManager {
         uint256 amount
     );
 
-    // Emitted when stake or unstake delay are modified.
+    // Emitted when stake or unstake delay are modified. 质押
     event StakeLocked(
         address indexed account,
         uint256 totalStaked,
         uint256 unstakeDelaySec
     );
 
-    // Emitted once a stake is scheduled for withdrawal.
+    // Emitted once a stake is scheduled for withdrawal. 质押解锁
     event StakeUnlocked(address indexed account, uint256 withdrawTime);
 
     event StakeWithdrawn(
@@ -36,7 +36,7 @@ interface IStakeManager {
      * @param staked          - True if this entity is staked.
      * @param stake           - Actual amount of ether staked for this entity.
      * @param unstakeDelaySec - Minimum delay to withdraw the stake.
-     * @param withdrawTime    - First block timestamp where 'withdrawStake' will be callable, or zero if already locked.
+     * @param withdrawTime    - First block timestamp where 'withdrawStake' will be callable, or zero if already locked. 可以质押提现的时间，如果锁定，则为0
      * @dev Sizes were chosen so that deposit fits into one cell (used during handleOp)
      *      and the rest fit into a 2nd cell (used during stake/unstake)
      *      - 112 bit allows for 10^15 eth
@@ -47,11 +47,11 @@ interface IStakeManager {
         uint256 deposit;
         bool staked;
         uint112 stake;
-        uint32 unstakeDelaySec;
+        uint32 unstakeDelaySec; //解押延迟时间
         uint48 withdrawTime;
     }
 
-    // API struct used by getStakeInfo and simulateValidation.
+    // API struct used by getStakeInfo and simulateValidation. 
     struct StakeInfo {
         uint256 stake;
         uint256 unstakeDelaySec;

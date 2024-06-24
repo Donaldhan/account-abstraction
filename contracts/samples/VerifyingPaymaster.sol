@@ -33,6 +33,7 @@ contract VerifyingPaymaster is BasePaymaster {
     }
 
     /**
+     * 返回OP离线签名hash
      * return the hash we're going to sign off-chain (and validate on-chain)
      * this method is called by the off-chain service, to sign the request.
      * it is called on-chain from the validatePaymasterUserOp, to validate the signature.
@@ -63,6 +64,7 @@ contract VerifyingPaymaster is BasePaymaster {
     }
 
     /**
+     * 校验签名
      * verify our external signer signed this request.
      * the "paymasterAndData" is expected to be the paymaster and a signature over the entire request params
      * paymasterAndData[:20] : address(this)

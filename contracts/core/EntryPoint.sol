@@ -24,10 +24,15 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  */
 
 /// @custom:security-contact https://bounty.ethereum.org
-contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard, ERC165 {
-
+contract EntryPoint is
+    IEntryPoint,
+    StakeManager,
+    NonceManager,
+    ReentrancyGuard,
+    ERC165
+{
     using UserOperationLib for PackedUserOperation;
-
+    //AA 发送者创建器
     SenderCreator private immutable _senderCreator = new SenderCreator();
 
     function senderCreator() internal view virtual returns (SenderCreator) {
@@ -46,9 +51,15 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     uint256 private constant PENALTY_PERCENT = 10;
 
     /// @inheritdoc IERC165
-    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override returns (bool) {
         // note: solidity "type(IEntryPoint).interfaceId" is without inherited methods but we want to check everything
-        return interfaceId == (type(IEntryPoint).interfaceId ^ type(IStakeManager).interfaceId ^ type(INonceManager).interfaceId) ||
+        return
+            interfaceId ==
+            (type(IEntryPoint).interfaceId ^
+                type(IStakeManager).interfaceId ^
+                type(INonceManager).interfaceId) ||
             interfaceId == type(IEntryPoint).interfaceId ||
             interfaceId == type(IStakeManager).interfaceId ||
             interfaceId == type(INonceManager).interfaceId ||
@@ -57,6 +68,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
     /**
      * Compensate the caller's beneficiary address with the collected fees of all UserOperations.
+     * 补偿所有OP的收集fee到调用者的收益地址
      * @param beneficiary - The address to receive the fees.
      * @param amount      - Amount to transfer.
      */
@@ -67,20 +79,17 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     }
 
     /**
-     * Execute a user operation.
+     * Execute a user operation. 执行OP
      * @param opIndex    - Index into the opInfo array.
      * @param userOp     - The userOp to execute.
      * @param opInfo     - The opInfo filled by validatePrepayment for this userOp.
-     * @return collected - The total amount this userOp paid.
+     * @return collected - The total amount this userOp paid.  OP支付的费用
      */
     function _executeUserOp(
         uint256 opIndex,
         PackedUserOperation calldata userOp,
         UserOpInfo memory opInfo
-    )
-    internal
-    returns
-    (uint256 collected) {
+    ) internal returns (uint256 collected) {
         uint256 preGas = gasleft();
         bytes memory context = getMemoryBytesFromOffset(opInfo.contextOffset);
         bool success;
@@ -99,14 +108,33 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 }
             }
             if (methodSig == IAccountExecute.executeUserOp.selector) {
-                bytes memory executeUserOp = abi.encodeCall(IAccountExecute.executeUserOp, (userOp, opInfo.userOpHash));
-                innerCall = abi.encodeCall(this.innerHandleOp, (executeUserOp, opInfo, context));
-            } else
-            {
-                innerCall = abi.encodeCall(this.innerHandleOp, (callData, opInfo, context));
+                //执行op
+                bytes memory executeUserOp = abi.encodeCall(
+                    IAccountExecute.executeUserOp,
+                    (userOp, opInfo.userOpHash)
+                );
+                innerCall = abi.encodeCall(
+                    this.innerHandleOp,
+                    (executeUserOp, opInfo, context)
+                );
+            } else {
+                //其他调用
+                innerCall = abi.encodeCall(
+                    this.innerHandleOp,
+                    (callData, opInfo, context)
+                );
             }
             assembly ("memory-safe") {
-                success := call(gas(), address(), 0, add(innerCall, 0x20), mload(innerCall), 0, 32)
+                //执行调用
+                success := call(
+                    gas(),
+                    address(),
+                    0,
+                    add(innerCall, 0x20),
+                    mload(innerCall),
+                    0,
+                    32
+                )
                 collected := mload(0)
                 mstore(0x40, saveFreePtr)
             }
@@ -115,16 +143,18 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             bytes32 innerRevertCode;
             assembly ("memory-safe") {
                 let len := returndatasize()
-                if eq(32,len) {
+                if eq(32, len) {
                     returndatacopy(0, 0, 32)
                     innerRevertCode := mload(0)
                 }
             }
             if (innerRevertCode == INNER_OUT_OF_GAS) {
+                //Gas耗尽
                 // handleOps was called with gas limit too low. abort entire bundle.
                 //can only be caused by bundler (leaving not enough gas for inner call)
                 revert FailedOp(opIndex, "AA95 out of gas");
             } else if (innerRevertCode == INNER_REVERT_LOW_PREFUND) {
+                //gas费用不足
                 // innerCall reverted on prefund too low. treat entire prefund as "gas cost"
                 uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
                 uint256 actualGasCost = opInfo.prefund;
@@ -132,14 +162,16 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 emitUserOperationEvent(opInfo, false, actualGasCost, actualGas);
                 collected = actualGasCost;
             } else {
+                //执行失败
                 emit PostOpRevertReason(
                     opInfo.userOpHash,
                     opInfo.mUserOp.sender,
                     opInfo.mUserOp.nonce,
                     Exec.getReturnData(REVERT_REASON_MAX_LEN)
                 );
-
+                //实际使用gas
                 uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
+                //计算实际消耗的gas，如果gas没有使用完，则将剩余gas 存到EP中；
                 collected = _postExecution(
                     IPaymaster.PostOpMode.postOpReverted,
                     opInfo,
@@ -150,7 +182,12 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         }
     }
 
-    function emitUserOperationEvent(UserOpInfo memory opInfo, bool success, uint256 actualGasCost, uint256 actualGas) internal virtual {
+    function emitUserOperationEvent(
+        UserOpInfo memory opInfo,
+        bool success,
+        uint256 actualGasCost,
+        uint256 actualGas
+    ) internal virtual {
         emit UserOperationEvent(
             opInfo.userOpHash,
             opInfo.mUserOp.sender,
@@ -181,10 +218,12 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         unchecked {
             for (uint256 i = 0; i < opslen; i++) {
                 UserOpInfo memory opInfo = opInfos[i];
+                //校验预付gas信息
                 (
                     uint256 validationData,
                     uint256 pmValidationData
                 ) = _validatePrepayment(i, ops[i], opInfo);
+                //解析校验数据，确保聚合地址及时间没有问题
                 _validateAccountAndPaymasterValidationData(
                     i,
                     validationData,
@@ -197,9 +236,11 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             emit BeforeExecution();
 
             for (uint256 i = 0; i < opslen; i++) {
+                //执行OP
                 collected += _executeUserOp(i, ops[i], opInfos[i]);
             }
-
+            // ??????????
+            //补偿所有OP的收集fee到调用者的收益地址
             _compensate(beneficiary, collected);
         }
     }
@@ -209,9 +250,9 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         UserOpsPerAggregator[] calldata opsPerAggregator,
         address payable beneficiary
     ) public nonReentrant {
-
         uint256 opasLen = opsPerAggregator.length;
         uint256 totalOps = 0;
+        //校验签名
         for (uint256 i = 0; i < opasLen; i++) {
             UserOpsPerAggregator calldata opa = opsPerAggregator[i];
             PackedUserOperation[] calldata ops = opa.userOps;
@@ -223,7 +264,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 "AA96 invalid aggregator"
             );
 
-            if (address(aggregator) != address(0)) {
+            if (address(aggregator) != address(0)) { //校验签名
                 // solhint-disable-next-line no-empty-blocks
                 try aggregator.validateSignatures(ops, opa.signature) {} catch {
                     revert SignatureValidationFailed(address(aggregator));
@@ -243,11 +284,13 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
             uint256 opslen = ops.length;
             for (uint256 i = 0; i < opslen; i++) {
+                //校验预付gas信息
                 UserOpInfo memory opInfo = opInfos[opIndex];
                 (
                     uint256 validationData,
                     uint256 paymasterValidationData
                 ) = _validatePrepayment(opIndex, ops[i], opInfo);
+                //解析校验数据，确保聚合地址及时间没有问题
                 _validateAccountAndPaymasterValidationData(
                     i,
                     validationData,
@@ -269,12 +312,14 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             uint256 opslen = ops.length;
 
             for (uint256 i = 0; i < opslen; i++) {
+                //执行op
                 collected += _executeUserOp(opIndex, ops[i], opInfos[opIndex]);
                 opIndex++;
             }
         }
         emit SignatureAggregatorChanged(address(0));
-
+        // ??????????
+        //补偿所有OP的收集fee到调用者的收益地址
         _compensate(beneficiary, collected);
     }
 
@@ -285,12 +330,12 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     struct MemoryUserOp {
         address sender;
         uint256 nonce;
-        uint256 verificationGasLimit;
-        uint256 callGasLimit;
-        uint256 paymasterVerificationGasLimit;
-        uint256 paymasterPostOpGasLimit;
+        uint256 verificationGasLimit; //验证gasLimit
+        uint256 callGasLimit; //调用gas Limit
+        uint256 paymasterVerificationGasLimit; //paymaster 验证gasLimit
+        uint256 paymasterPostOpGasLimit; //paymaster postOp gasLimit
         uint256 preVerificationGas;
-        address paymaster;
+        address paymaster; //paymaster
         uint256 maxFeePerGas;
         uint256 maxPriorityFeePerGas;
     }
@@ -298,13 +343,13 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     struct UserOpInfo {
         MemoryUserOp mUserOp;
         bytes32 userOpHash;
-        uint256 prefund;
-        uint256 contextOffset;
-        uint256 preOpGas;
+        uint256 prefund;//预付gas fund
+        uint256 contextOffset;//paymaster 预发校验context
+        uint256 preOpGas;//实际使用的预付校验gas
     }
 
     /**
-     * Inner function to handle a UserOperation.
+     * Inner function to handle a UserOperation. 内部handler  OP方法
      * Must be declared "external" to open a call context, but it can only be called by handleOps.
      * @param callData - The callData to execute.
      * @param opInfo   - The UserOpInfo struct.
@@ -324,10 +369,10 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         unchecked {
             // handleOps was called with gas limit too low. abort entire bundle.
             if (
-                gasleft() * 63 / 64 <
+                (gasleft() * 63) / 64 <
                 callGasLimit +
-                mUserOp.paymasterPostOpGasLimit +
-                INNER_GAS_OVERHEAD
+                    mUserOp.paymasterPostOpGasLimit +
+                    INNER_GAS_OVERHEAD
             ) {
                 assembly ("memory-safe") {
                     mstore(0, INNER_OUT_OF_GAS)
@@ -338,6 +383,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
         IPaymaster.PostOpMode mode = IPaymaster.PostOpMode.opSucceeded;
         if (callData.length > 0) {
+            //执行实际的调用
             bool success = Exec.call(mUserOp.sender, 0, callData, callGasLimit);
             if (!success) {
                 bytes memory result = Exec.getReturnData(REVERT_REASON_MAX_LEN);
@@ -354,6 +400,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         }
 
         unchecked {
+            //实际gas
             uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
             return _postExecution(mode, opInfo, context, actualGas);
         }
@@ -378,16 +425,26 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     ) internal pure {
         mUserOp.sender = userOp.sender;
         mUserOp.nonce = userOp.nonce;
-        (mUserOp.verificationGasLimit, mUserOp.callGasLimit) = UserOperationLib.unpackUints(userOp.accountGasLimits);
+        //验证gas和调用gas Limit
+        (mUserOp.verificationGasLimit, mUserOp.callGasLimit) = UserOperationLib
+            .unpackUints(userOp.accountGasLimits);
         mUserOp.preVerificationGas = userOp.preVerificationGas;
-        (mUserOp.maxPriorityFeePerGas, mUserOp.maxFeePerGas) = UserOperationLib.unpackUints(userOp.gasFees);
+        //Eip1559
+        (mUserOp.maxPriorityFeePerGas, mUserOp.maxFeePerGas) = UserOperationLib
+            .unpackUints(userOp.gasFees);
         bytes calldata paymasterAndData = userOp.paymasterAndData;
         if (paymasterAndData.length > 0) {
             require(
-                paymasterAndData.length >= UserOperationLib.PAYMASTER_DATA_OFFSET,
+                paymasterAndData.length >=
+                    UserOperationLib.PAYMASTER_DATA_OFFSET,
                 "AA93 invalid paymasterAndData"
             );
-            (mUserOp.paymaster, mUserOp.paymasterVerificationGasLimit, mUserOp.paymasterPostOpGasLimit) = UserOperationLib.unpackPaymasterStaticFields(paymasterAndData);
+            //paymaster 验证机postOP gasLImit
+            (
+                mUserOp.paymaster,
+                mUserOp.paymasterVerificationGasLimit,
+                mUserOp.paymasterPostOpGasLimit
+            ) = UserOperationLib.unpackPaymasterStaticFields(paymasterAndData);
         } else {
             mUserOp.paymaster = address(0);
             mUserOp.paymasterVerificationGasLimit = 0;
@@ -397,6 +454,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
     /**
      * Get the required prefunded gas fee amount for an operation.
+     * 获取OP的prefunded gas fee amount
      * @param mUserOp - The user operation in memory.
      */
     function _getRequiredPrefund(
@@ -415,6 +473,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
     /**
      * Create sender smart contract account if init code is provided.
+     * 创建合约账户
      * @param opIndex  - The operation index.
      * @param opInfo   - The operation info.
      * @param initCode - The init code for the smart contract account.
@@ -428,12 +487,14 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             address sender = opInfo.mUserOp.sender;
             if (sender.code.length != 0)
                 revert FailedOp(opIndex, "AA10 sender already constructed");
+            //创建账户
             address sender1 = senderCreator().createSender{
                 gas: opInfo.mUserOp.verificationGasLimit
             }(initCode);
             if (sender1 == address(0))
                 revert FailedOp(opIndex, "AA13 initCode failed or OOG");
             if (sender1 != sender)
+                //check 发送者地址
                 revert FailedOp(opIndex, "AA14 initCode must return sender");
             if (sender1.code.length == 0)
                 revert FailedOp(opIndex, "AA15 initCode must create sender");
@@ -457,6 +518,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
      * Call account.validateUserOp.
      * Revert (with FailedOp) in case validateUserOp reverts, or account didn't send required prefund.
      * Decrement account's deposit if needed.
+     * 如果需要则创建账户；校验OP gas信息，账户支付的情况下更新账户余额；
      * @param opIndex         - The operation index.
      * @param op              - The user operation.
      * @param opInfo          - The operation info.
@@ -468,33 +530,38 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         UserOpInfo memory opInfo,
         uint256 requiredPrefund,
         uint256 verificationGasLimit
-    )
-        internal
-        returns (
-            uint256 validationData
-        )
-    {
+    ) internal returns (uint256 validationData) {
         unchecked {
             MemoryUserOp memory mUserOp = opInfo.mUserOp;
             address sender = mUserOp.sender;
+            //创建合约账户
             _createSenderIfNeeded(opIndex, opInfo, op.initCode);
             address paymaster = mUserOp.paymaster;
             uint256 missingAccountFunds = 0;
             if (paymaster == address(0)) {
+                //确保账户余额足够
                 uint256 bal = balanceOf(sender);
                 missingAccountFunds = bal > requiredPrefund
                     ? 0
                     : requiredPrefund - bal;
             }
+            //校验OP
             try
-                IAccount(sender).validateUserOp{
-                    gas: verificationGasLimit
-                }(op, opInfo.userOpHash, missingAccountFunds)
+                IAccount(sender).validateUserOp{gas: verificationGasLimit}(
+                    op,
+                    opInfo.userOpHash,
+                    missingAccountFunds
+                )
             returns (uint256 _validationData) {
                 validationData = _validationData;
             } catch {
-                revert FailedOpWithRevert(opIndex, "AA23 reverted", Exec.getReturnData(REVERT_REASON_MAX_LEN));
+                revert FailedOpWithRevert(
+                    opIndex,
+                    "AA23 reverted",
+                    Exec.getReturnData(REVERT_REASON_MAX_LEN)
+                );
             }
+            //检查账户余额，并并更新账户余额
             if (paymaster == address(0)) {
                 DepositInfo storage senderInfo = deposits[sender];
                 uint256 deposit = senderInfo.deposit;
@@ -507,6 +574,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     }
 
     /**
+     * 校验paymaster预付gas
      * In case the request has a paymaster:
      *  - Validate paymaster has enough deposit.
      *  - Call paymaster.validatePaymasterUserOp.
@@ -529,31 +597,40 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             address paymaster = mUserOp.paymaster;
             DepositInfo storage paymasterInfo = deposits[paymaster];
             uint256 deposit = paymasterInfo.deposit;
+            //确保paymaster deposit 足够
             if (deposit < requiredPreFund) {
                 revert FailedOp(opIndex, "AA31 paymaster deposit too low");
             }
             paymasterInfo.deposit = deposit - requiredPreFund;
-            uint256 pmVerificationGasLimit = mUserOp.paymasterVerificationGasLimit;
+            uint256 pmVerificationGasLimit = mUserOp
+                .paymasterVerificationGasLimit;
+           //paymaster校验 用户OP
             try
-                IPaymaster(paymaster).validatePaymasterUserOp{gas: pmVerificationGasLimit}(
-                    op,
-                    opInfo.userOpHash,
-                    requiredPreFund
-                )
+                IPaymaster(paymaster).validatePaymasterUserOp{
+                    gas: pmVerificationGasLimit
+                }(op, opInfo.userOpHash, requiredPreFund)
             returns (bytes memory _context, uint256 _validationData) {
                 context = _context;
                 validationData = _validationData;
             } catch {
-                revert FailedOpWithRevert(opIndex, "AA33 reverted", Exec.getReturnData(REVERT_REASON_MAX_LEN));
+                revert FailedOpWithRevert(
+                    opIndex,
+                    "AA33 reverted",
+                    Exec.getReturnData(REVERT_REASON_MAX_LEN)
+                );
             }
             if (preGas - gasleft() > pmVerificationGasLimit) {
-                revert FailedOp(opIndex, "AA36 over paymasterVerificationGasLimit");
+                revert FailedOp(
+                    opIndex,
+                    "AA36 over paymasterVerificationGasLimit"
+                );
             }
         }
     }
 
     /**
      * Revert if either account validationData or paymaster validationData is expired.
+     * 解析校验数据，确保聚合地址及时间没有问题
      * @param opIndex                 - The operation index.
      * @param validationData          - The account validationData.
      * @param paymasterValidationData - The paymaster validationData.
@@ -565,18 +642,22 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         uint256 paymasterValidationData,
         address expectedAggregator
     ) internal view {
+
+        //解析校验数据
         (address aggregator, bool outOfTimeRange) = _getValidationData(
             validationData
         );
         if (expectedAggregator != aggregator) {
             revert FailedOp(opIndex, "AA24 signature error");
         }
+        //时间范围异常
         if (outOfTimeRange) {
             revert FailedOp(opIndex, "AA22 expired or not due");
         }
         // pmAggregator is not a real signature aggregator: we don't have logic to handle it as address.
         // Non-zero address means that the paymaster fails due to some signature check (which is ok only during estimation).
         address pmAggregator;
+        //解析paymaster校验数据，确保聚合地址及时间没有问题
         (pmAggregator, outOfTimeRange) = _getValidationData(
             paymasterValidationData
         );
@@ -602,7 +683,9 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         }
         ValidationData memory data = _parseValidationData(validationData);
         // solhint-disable-next-line not-rely-on-time
-        outOfTimeRange = block.timestamp > data.validUntil || block.timestamp < data.validAfter;
+        outOfTimeRange =
+            block.timestamp > data.validUntil ||
+            block.timestamp < data.validAfter;
         aggregator = data.aggregator;
     }
 
@@ -610,6 +693,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
      * Validate account and paymaster (if defined) and
      * also make sure total validation doesn't exceed verificationGasLimit.
      * This method is called off-chain (simulateValidation()) and on-chain (from handleOps)
+     * 校验gas不会超过verificationGasLimit；
+     * 此方法为链下的simulateValidation和链上的handleOps 调用
      * @param opIndex - The index of this userOp into the "opInfos" array.
      * @param userOp  - The userOp to validate.
      */
@@ -637,8 +722,9 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             mUserOp.maxFeePerGas |
             mUserOp.maxPriorityFeePerGas;
         require(maxGasValues <= type(uint120).max, "AA94 gas values overflow");
-
+        //获取OP的prefunded gas fee amount
         uint256 requiredPreFund = _getRequiredPrefund(mUserOp);
+        //如果需要则创建账户；校验OP gas信息，账户支付的情况下更新账户余额
         validationData = _validateAccountPrepayment(
             opIndex,
             userOp,
@@ -646,19 +732,20 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             requiredPreFund,
             verificationGasLimit
         );
-
+        //校验nonce
         if (!_validateAndUpdateNonce(mUserOp.sender, mUserOp.nonce)) {
             revert FailedOp(opIndex, "AA25 invalid account nonce");
         }
-
+        //确保预付gas足够
         unchecked {
             if (preGas - gasleft() > verificationGasLimit) {
                 revert FailedOp(opIndex, "AA26 over verificationGasLimit");
             }
         }
-
+        
         bytes memory context;
         if (mUserOp.paymaster != address(0)) {
+            // 校验paymaster预付gas
             (context, paymasterValidationData) = _validatePaymasterPrepayment(
                 opIndex,
                 userOp,
@@ -667,16 +754,21 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             );
         }
         unchecked {
+            //预付gas fund
             outOpInfo.prefund = requiredPreFund;
             outOpInfo.contextOffset = getOffsetOfMemoryBytes(context);
+            //实际使用的预付校验gas
             outOpInfo.preOpGas = preGas - gasleft() + userOp.preVerificationGas;
         }
     }
 
     /**
-     * Process post-operation, called just after the callData is executed.
+     * 计算实际消耗的gas，如果gas没有使用完，则将剩余gas 存到EP中
+     * Process post-operation, called just after the callData is executed. 在calldata执行后，调用
      * If a paymaster is defined and its validation returned a non-empty context, its postOp is called.
      * The excess amount is refunded to the account (or paymaster - if it was used in the request).
+     * 如果paymaster有定义，且校验后，返回一个空的上下文，postOp将会调用；
+     * 超出的金额将会退回；
      * @param mode      - Whether is called from innerHandleOp, or outside (postOpReverted).
      * @param opInfo    - UserOp fields and info collected during validation.
      * @param context   - The context returned in validatePaymasterUserOp.
@@ -692,48 +784,66 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         unchecked {
             address refundAddress;
             MemoryUserOp memory mUserOp = opInfo.mUserOp;
+            //gasprice
             uint256 gasPrice = getUserOpGasPrice(mUserOp);
 
             address paymaster = mUserOp.paymaster;
             if (paymaster == address(0)) {
+                //退回给发送者
                 refundAddress = mUserOp.sender;
             } else {
                 refundAddress = paymaster;
                 if (context.length > 0) {
+                    //实际消耗gas
                     actualGasCost = actualGas * gasPrice;
-                    if (mode != IPaymaster.PostOpMode.postOpReverted) {
-                        try IPaymaster(paymaster).postOp{
-                            gas: mUserOp.paymasterPostOpGasLimit
-                        }(mode, context, actualGasCost, gasPrice)
+                    if (mode != IPaymaster.PostOpMode.postOpReverted) {//postOP
+                        try
+                            IPaymaster(paymaster).postOp{
+                                gas: mUserOp.paymasterPostOpGasLimit
+                            }(mode, context, actualGasCost, gasPrice)
                         // solhint-disable-next-line no-empty-blocks
-                        {} catch {
-                            bytes memory reason = Exec.getReturnData(REVERT_REASON_MAX_LEN);
+                        {
+
+                        } catch {
+                            bytes memory reason = Exec.getReturnData(
+                                REVERT_REASON_MAX_LEN
+                            );
                             revert PostOpReverted(reason);
                         }
                     }
                 }
             }
+            //实际使用gas
             actualGas += preGas - gasleft();
 
-            // Calculating a penalty for unused execution gas
-            {
-                uint256 executionGasLimit = mUserOp.callGasLimit + mUserOp.paymasterPostOpGasLimit;
+            // Calculating a penalty for unused execution gas 基于未使用gas的惩罚金额
+            { 
+                uint256 executionGasLimit = mUserOp.callGasLimit +
+                    mUserOp.paymasterPostOpGasLimit;
+                    //执行使用gas
                 uint256 executionGasUsed = actualGas - opInfo.preOpGas;
                 // this check is required for the gas used within EntryPoint and not covered by explicit gas limits
                 if (executionGasLimit > executionGasUsed) {
+                    //未使用的gas
                     uint256 unusedGas = executionGasLimit - executionGasUsed;
-                    uint256 unusedGasPenalty = (unusedGas * PENALTY_PERCENT) / 100;
+                    uint256 unusedGasPenalty = (unusedGas * PENALTY_PERCENT) /
+                        100;
                     actualGas += unusedGasPenalty;
                 }
             }
-
+            //实际gas消耗
             actualGasCost = actualGas * gasPrice;
             uint256 prefund = opInfo.prefund;
-            if (prefund < actualGasCost) {
+            if (prefund < actualGasCost) {//预发fund不足
                 if (mode == IPaymaster.PostOpMode.postOpReverted) {
                     actualGasCost = prefund;
                     emitPrefundTooLow(opInfo);
-                    emitUserOperationEvent(opInfo, false, actualGasCost, actualGas);
+                    emitUserOperationEvent(
+                        opInfo,
+                        false,
+                        actualGasCost,
+                        actualGas
+                    );
                 } else {
                     assembly ("memory-safe") {
                         mstore(0, INNER_REVERT_LOW_PREFUND)
@@ -741,10 +851,17 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                     }
                 }
             } else {
+                //剩余金额 存到EP中
                 uint256 refund = prefund - actualGasCost;
                 _incrementDeposit(refundAddress, refund);
+                //OP 模式成功
                 bool success = mode == IPaymaster.PostOpMode.opSucceeded;
-                emitUserOperationEvent(opInfo, success, actualGasCost, actualGas);
+                emitUserOperationEvent(
+                    opInfo,
+                    success,
+                    actualGasCost,
+                    actualGas
+                );
             }
         } // unchecked
     }

@@ -34,10 +34,10 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
         /// @notice Exchange tokens to native currency if the EntryPoint balance of this Paymaster falls below this value
         uint128 minEntryPointBalance;
 
-        /// @notice Estimated gas cost for refunding tokens after the transaction is completed
+        /// @notice Estimated gas cost for refunding tokens after the transaction is completed 在交易完成后，评估需要退回的token
         uint48 refundPostopCost;
 
-        /// @notice Transactions are only valid as long as the cached price is not older than this value
+        /// @notice Transactions are only valid as long as the cached price is not older than this value 只要缓存的价格在此值之前，交易都是有效
         uint48 priceMaxAge;
     }
 
@@ -105,14 +105,15 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
         _setUniswapHelperConfiguration(_uniswapHelperConfig);
     }
 
-    /// @notice Allows the contract owner to withdraw a specified amount of tokens from the contract.
+    /// @notice Allows the contract owner to withdraw a specified amount of tokens from the contract. 提现token
     /// @param to The address to transfer the tokens to.
     /// @param amount The amount of tokens to transfer.
     function withdrawToken(address to, uint256 amount) external onlyOwner {
         SafeERC20.safeTransfer(token, to, amount);
     }
 
-    /// @notice Validates a paymaster user operation and calculates the required token amount for the transaction.
+    /// @notice Validates a paymaster user operation and calculates the required token amount for the transaction. 
+    /// 校验paymaster OP，计算交易需要的token数量，并转账到paymaster
     /// @param userOp The user operation data.
     /// @param requiredPreFund The maximum cost (in native token) the paymaster has to prefund.
     /// @return context The context containing the token amount and user sender address (if applicable).
@@ -128,6 +129,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
             );
             uint256 maxFeePerGas = userOp.unpackMaxFeePerGas();
             uint256 refundPostopCost = tokenPaymasterConfig.refundPostopCost;
+            //检查postOpGasLimit
             require(refundPostopCost < userOp.unpackPostOpGasLimit(), "TPM: postOpGasLimit too low");
             uint256 preChargeNative = requiredPreFund + (refundPostopCost * maxFeePerGas);
         // note: as price is in native-asset-per-token and we want more tokens increasing it means dividing it by markup
@@ -140,6 +142,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
                 }
             }
             uint256 tokenAmount = weiToToken(preChargeNative, cachedPriceWithMarkup);
+            //转移给定数量的token给本地址
             SafeERC20.safeTransferFrom(token, userOp.sender, address(this), tokenAmount);
             context = abi.encode(tokenAmount, userOp.sender);
             validationResult = _packValidationData(
@@ -151,6 +154,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     }
 
     /// @notice Performs post-operation tasks, such as updating the token price and refunding excess tokens.
+    /// 执行post任务，比如更新token价格，退还剩余的token，如果由于gas不足revert，超过preGas的，需要补足gas；如果需要则将token swap为weth，并提现，质押到EP
     /// @dev This function is called after a user operation has been executed or reverted.
     /// @param context The context containing the token amount and user sender address.
     /// @param actualGasCost The actual gas cost of the transaction.
@@ -164,6 +168,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
                 uint256 preCharge,
                 address userOpSender
             ) = abi.decode(context, (uint256, address));
+            //更新orcale价格
             uint256 _cachedPrice = updateCachedPrice(false);
         // note: as price is in native-asset-per-token and we want more tokens increasing it means dividing it by markup
             uint256 cachedPriceWithMarkup = _cachedPrice * PRICE_DENOMINATOR / priceMarkup;
@@ -172,6 +177,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
             uint256 actualTokenNeeded = weiToToken(actualChargeNative, cachedPriceWithMarkup);
             if (preCharge > actualTokenNeeded) {
                 // If the initially provided token amount is greater than the actual amount needed, refund the difference
+                // 退还token
                 SafeERC20.safeTransfer(
                     token,
                     userOpSender,
@@ -180,6 +186,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
             } else if (preCharge < actualTokenNeeded) {
                 // Attempt to cover Paymaster's gas expenses by withdrawing the 'overdraft' from the client
                 // If the transfer reverts also revert the 'postOp' to remove the incentive to cheat
+                //补偿不足的token
                 SafeERC20.safeTransferFrom(
                     token,
                     userOpSender,
@@ -189,19 +196,24 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
             }
 
             emit UserOperationSponsored(userOpSender, actualTokenNeeded, actualGasCost, cachedPriceWithMarkup);
+            //将token swap为 weth，并提现只要到EP
             refillEntryPointDeposit(_cachedPrice);
         }
     }
 
     /// @notice If necessary this function uses this Paymaster's token balance to refill the deposit on EntryPoint
+    /// 将token swap为 weth，并提现只要到EP
     /// @param _cachedPrice the token price that will be used to calculate the swap amount.
     function refillEntryPointDeposit(uint256 _cachedPrice) private {
         uint256 currentEntryPointBalance = entryPoint.balanceOf(address(this));
         if (
             currentEntryPointBalance < tokenPaymasterConfig.minEntryPointBalance
         ) {
+            //swap to weth
             uint256 swappedWeth = _maybeSwapTokenToWeth(token, _cachedPrice);
+            //提现eth
             unwrapWeth(swappedWeth);
+            //存到EP
             entryPoint.depositTo{value: address(this).balance}(address(this));
         }
     }

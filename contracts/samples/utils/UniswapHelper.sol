@@ -49,9 +49,10 @@ abstract contract UniswapHelper {
     function _setUniswapHelperConfiguration(UniswapHelperConfig memory _uniswapHelperConfig) internal {
         uniswapHelperConfig = _uniswapHelperConfig;
     }
-
+    //转换token为原生代币wei
     function _maybeSwapTokenToWeth(IERC20 tokenIn, uint256 quote) internal returns (uint256) {
         uint256 tokenBalance = tokenIn.balanceOf(address(this));
+        //滑点
         uint256 amountOutMin = addSlippage(tokenToWei(tokenBalance, quote), uniswapHelperConfig.slippage);
         if (amountOutMin < uniswapHelperConfig.minSwapAmount) {
             return 0;
@@ -83,7 +84,7 @@ abstract contract UniswapHelper {
         IPeripheryPayments(address(uniswap)).unwrapWETH9(amount, address(this));
     }
 
-    // swap ERC-20 tokens at market price
+    // swap ERC-20 tokens at market price 以市场价swap
     function swapToToken(
         address tokenIn,
         address tokenOut,

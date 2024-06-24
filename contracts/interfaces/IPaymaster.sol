@@ -6,6 +6,7 @@ import "./PackedUserOperation.sol";
 /**
  * The interface exposed by a paymaster contract, who agrees to pay the gas for user's operations.
  * A paymaster must hold a stake to cover the required entrypoint stake and also the gas for the transaction.
+ * paymaster 暴漏接口，赞成支付用户op； paymaster必须拥有可以覆盖EP 质押的需求和支付交易的gas费用；
  */
 interface IPaymaster {
     enum PostOpMode {
@@ -23,12 +24,13 @@ interface IPaymaster {
      * Revert to reject this request.
      * Note that bundlers will reject this method if it changes the state, unless the paymaster is trusted (whitelisted).
      * The paymaster pre-pays using its deposit, and receive back a refund after the postOp method returns.
+     * 如果状态改变，则bundlers将会拒绝这个方法，触发paymaster是可信的，paymaster将会使用deposit进行支付gas，再postOp操作后接收退款；
      * @param userOp          - The user operation.
      * @param userOpHash      - Hash of the user's request data.
      * @param maxCost         - The maximum cost of this transaction (based on maximum gas and gas price from userOp).
-     * @return context        - Value to send to a postOp. Zero length to signify postOp is not required.
+     * @return context        - Value to send to a postOp. Zero length to signify postOp is not required. 发送给postOp的Value
      * @return validationData - Signature and time-range of this operation, encoded the same as the return
-     *                          value of validateUserOperation.
+     *                          value of validateUserOperation. 带时间范围的签名
      *                          <20-byte> sigAuthorizer - 0 for valid signature, 1 to mark signature failure,
      *                                                    other values are invalid for paymaster.
      *                          <6-byte> validUntil - last timestamp this operation is valid. 0 for "indefinite"
@@ -43,16 +45,16 @@ interface IPaymaster {
 
     /**
      * Post-operation handler.
-     * Must verify sender is the entryPoint.
+     * Must verify sender is the entryPoint.  必须校验发送者为EP
      * @param mode          - Enum with the following options:
      *                        opSucceeded - User operation succeeded.
      *                        opReverted  - User op reverted. The paymaster still has to pay for gas.
      *                        postOpReverted - never passed in a call to postOp().
      * @param context       - The context value returned by validatePaymasterUserOp
-     * @param actualGasCost - Actual gas used so far (without this postOp call).
+     * @param actualGasCost - Actual gas used so far (without this postOp call). 实际消耗的gas，不带postOp方法调用；
      * @param actualUserOpFeePerGas - the gas price this UserOp pays. This value is based on the UserOp's maxFeePerGas
-     *                        and maxPriorityFee (and basefee)
-     *                        It is not the same as tx.gasprice, which is what the bundler pays.
+     *                        and maxPriorityFee (and basefee) eip1559支付的gas
+     *                        It is not the same as tx.gasprice, which is what the bundler pays. 不同于tx.gasprice， 这个是bundler支付的
      */
     function postOp(
         PostOpMode mode,

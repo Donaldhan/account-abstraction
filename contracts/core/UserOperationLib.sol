@@ -11,9 +11,9 @@ import {calldataKeccak, min} from "./Helpers.sol";
  */
 library UserOperationLib {
 
-    uint256 public constant PAYMASTER_VALIDATION_GAS_OFFSET = 20;
-    uint256 public constant PAYMASTER_POSTOP_GAS_OFFSET = 36;
-    uint256 public constant PAYMASTER_DATA_OFFSET = 52;
+    uint256 public constant PAYMASTER_VALIDATION_GAS_OFFSET = 20;// validation gas offset
+    uint256 public constant PAYMASTER_POSTOP_GAS_OFFSET = 36; //支付postOp gas offset
+    uint256 public constant PAYMASTER_DATA_OFFSET = 52;// 支付数据offset
     /**
      * Get sender from user operation data.
      * @param userOp - The user operation data.
@@ -32,12 +32,14 @@ library UserOperationLib {
     /**
      * Relayer/block builder might submit the TX with higher priorityFee,
      * but the user should not pay above what he signed for.
+     * 中继器或者区块链构建者，也许会提交高priorityFee的交易，但是用户不应搞支付超过他签名的手续费；
      * @param userOp - The user operation data.
      */
     function gasPrice(
         PackedUserOperation calldata userOp
     ) internal view returns (uint256) {
         unchecked {
+            //eip 1559
             (uint256 maxPriorityFeePerGas, uint256 maxFeePerGas) = unpackUints(userOp.gasFees);
             if (maxFeePerGas == maxPriorityFeePerGas) {
                 //legacy mode (for networks that don't support basefee opcode)
