@@ -6,11 +6,12 @@ import "./IBLSAccount.sol";
 import "../../core/Helpers.sol";
 
 /**
- * Minimal BLS-based account that uses an aggregated signature.
- * The account must maintain its own BLS public key, and expose its trusted signature aggregator.
- * Note that unlike the "standard" SimpleAccount, this account can't be called directly
+ * Minimal BLS-based account that uses an aggregated signature. 最小化BLS账号聚合签名
+ * The account must maintain its own BLS public key, and expose its trusted signature aggregator. 此账号维护他自己的BLS公钥，并暴露给他的可信签名聚合器
+ * Note that unlike the "standard" SimpleAccount, this account can't be called directly 
  * (normal SimpleAccount uses its "signer" address as both the ecrecover signer, and as a legitimate
  * Ethereum sender address. Obviously, a BLS public key is not a valid Ethereum sender address.)
+ * 此账号不能像SimpleAccount直接调用。
  */
 contract BLSAccount is SimpleAccount, IBLSAccount {
     address public immutable aggregator;
@@ -39,6 +40,7 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
             // BLSSignatureAggregator.getUserOpPublicKey() assumes that during account creation, the public key is
             // the suffix of the initCode.
             // The account MUST validate it
+            //创建期间需要校验签名hash
             bytes32 pubKeyHash = keccak256(abi.encode(getBlsPublicKey()));
             require(keccak256(userOp.initCode[userOp.initCode.length - 128 :]) == pubKeyHash, "wrong pubkey");
         }

@@ -74,6 +74,7 @@ contract LegacyTokenPaymaster is BasePaymaster, ERC20 {
       */
     function _validatePaymasterUserOp(PackedUserOperation calldata userOp, bytes32 /*userOpHash*/, uint256 requiredPreFund)
     internal view override returns (bytes memory context, uint256 validationData) {
+        //预付金
         uint256 tokenPrefund = getTokenValueOfEth(requiredPreFund);
 
         uint256 postOpGasLimit = userOp.unpackPostOpGasLimit();

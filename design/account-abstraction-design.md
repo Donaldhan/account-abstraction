@@ -24,8 +24,8 @@
 * _validatePaymasterUserOp：校验paymaster OP，计算交易需要的token数量，并转账到paymaster；
 * _postOp：执行post任务，比如更新token价格，退还剩余的token，如果由于gas不足revert，超过preGas的，需要补足gas；如果需要则将token swap为weth，并提现，质押到EP
 
-
-2. LegacyTokenPaymaster：
+## Aggregator
+1. BLSSignatureAggregator：基于BLS账户的签名与签名验证聚合器；
 
 
 

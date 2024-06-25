@@ -42,6 +42,7 @@ contract BLSSignatureAggregator is IAggregator {
     }
 
     /**
+     * 从公钥序列数据中，解析BLS公钥
      * return the trailing 4 words of input data
      */
     function getTrailingPublicKey(bytes memory data) public pure returns (uint256[4] memory publicKey) {
@@ -63,6 +64,7 @@ contract BLSSignatureAggregator is IAggregator {
     function validateSignatures(PackedUserOperation[] calldata userOps, bytes calldata signature)
     external view override {
         require(signature.length == 64, "BLS: invalid signature");
+        //从签名中解析bls签名
         (uint256[2] memory blsSignature) = abi.decode(signature, (uint256[2]));
 
         uint256 userOpsLen = userOps.length;
@@ -79,7 +81,7 @@ contract BLSSignatureAggregator is IAggregator {
     }
 
     /**
-     * get a hash of userOp
+     * get a hash of userOp 
      * NOTE: this hash is not the same as UserOperation.hash()
      *  (slightly less efficient, since it uses memory userOp)
      */
@@ -124,7 +126,7 @@ contract BLSSignatureAggregator is IAggregator {
         return keccak256(abi.encode(publicKey));
     }
     /**
-     * validate signature of a single userOp
+     * validate signature of a single userOp 校验单个签名
      * This method is called after EntryPoint.simulateValidation() returns an aggregator.
      * First it validates the signature over the userOp. then it return data to be used when creating the handleOps:
      * @param userOp the userOperation received from the user.
@@ -143,7 +145,7 @@ contract BLSSignatureAggregator is IAggregator {
 
 
     /**
-     * aggregate multiple signatures into a single value.
+     * aggregate multiple signatures into a single value. 聚合签名
      * This method is called off-chain to calculate the signature to pass with handleOps()
      * bundler MAY use optimized custom code perform this aggregation
      * @param userOps array of UserOperations to collect the signatures from.
