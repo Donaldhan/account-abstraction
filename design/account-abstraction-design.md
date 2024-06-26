@@ -14,7 +14,7 @@
 ![ep-handleaggeratedop](/image/ep-handleaggeratedop.webp)   
 
 AA好处
-1. 社交恢复；
+1. 社交恢复；私钥丢失，AA账号升级找回账号；
 2. gas代付；
 
 # Account abstraction工作流程
