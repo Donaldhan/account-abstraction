@@ -107,7 +107,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
             uint256 validationData,
             uint256 paymasterValidationData
         ) = _validatePrepayment(0, op, opInfo);
-
+        //执行op
         uint256 paid = _executeUserOp(0, op, opInfo);
         bool targetSuccess;
         bytes memory targetResult;
@@ -123,7 +123,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
             targetResult
         );
     }
-
+    ///摸底验证
     function _simulationOnlyValidations(
         PackedUserOperation calldata userOp
     )

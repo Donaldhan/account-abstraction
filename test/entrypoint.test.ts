@@ -1,3 +1,6 @@
+/**
+ * npx hardhat test ./test/entrypoint.test.ts 
+ */
 import './aa.init'
 import { BigNumber, Event, Wallet } from 'ethers'
 import { expect } from 'chai'

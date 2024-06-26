@@ -35,6 +35,7 @@ interface IEntryPointSimulations is IEntryPoint {
 
     /**
      * Simulate a call to account.validateUserOp and paymaster.validatePaymasterUserOp.
+     * 模拟account.validateUserOp and paymaster.validatePaymasterUserOp
      * @dev The node must also verify it doesn't use banned opcodes, and that it doesn't reference storage
      *      outside the account's data.
      * @param userOp - The user operation to validate.
@@ -53,11 +54,13 @@ interface IEntryPointSimulations is IEntryPoint {
      * It performs full validation of the UserOperation, but ignores signature error.
      * An optional target address is called after the userop succeeds,
      * and its value is returned (before the entire call is reverted).
+     * 模拟OP的执行包含验证和实际的执行；执行所有验证操作，但是忽略签名粗欧文；
      * Note that in order to collect the the success/failure of the target call, it must be executed
      * with trace enabled to track the emitted events.
      * @param op The UserOperation to simulate.
      * @param target         - If nonzero, a target address to call after userop simulation. If called,
      *                         the targetSuccess and targetResult are set to the return from that call.
+     * 成功模拟执行OP后，调用目标地址；
      * @param targetCallData - CallData to pass to target address.
      * @return the execution result structure
      */

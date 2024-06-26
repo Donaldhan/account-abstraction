@@ -239,8 +239,7 @@ contract EntryPoint is
                 //执行OP
                 collected += _executeUserOp(i, ops[i], opInfos[i]);
             }
-            // ??????????
-            //补偿所有OP的收集fee到调用者的收益地址
+            //补偿所有OP执行的gas fee给Bundler的收益地址
             _compensate(beneficiary, collected);
         }
     }
@@ -318,8 +317,7 @@ contract EntryPoint is
             }
         }
         emit SignatureAggregatorChanged(address(0));
-        // ??????????
-        //补偿所有OP的收集fee到调用者的收益地址
+        //补偿所有OP执行的gas fee给Bundler的收益地址
         _compensate(beneficiary, collected);
     }
 
