@@ -1,19 +1,22 @@
 
+# 核心流程
+
+1. 捆绑、处理用户操作
+![bundle-seq](/image/account-abstraction/bundle-seq.svg)   
+![ep-handleop-account](/image/account-abstraction/ep-handleop-account.webp)     
+![bundle-handlerop](/image/account-abstraction/bundle-handlerop.png)  
+
+* 创建AA账户
+![ep-handleop-deploy-contract](/image/account-abstraction/ep-handleop-deploy-contract.webp)  
 
 
-![bundle-seq](/image/bundle-seq.svg)   
-![ep-handleop-account](/image/ep-handleop-account.webp)     
-![bundle-handlerop](/image/bundle-handlerop.png)  
+* PayMaster  
+![bundle-seq-pm](/image/account-abstraction/bundle-seq-pm.svg)   
+![ep-handleop-paymaster](/image/account-abstraction/ep-handleop-paymaster.webp)  
+![bundle-handlerop-pm](/image/account-abstraction/bundle-handlerop-pm.png)    
 
-  
-![bundle-seq-pm](/image/bundle-seq-pm.svg)   
-![ep-handleop-paymaster](/image/ep-handleop-paymaster.webp)  
-![bundle-handlerop-pm](/image/bundle-handlerop-pm.png)  
-
-![ep-handleop-deploy-contract](/image/ep-handleop-deploy-contract.webp)
-![ep-handleaggeratedop](/image/ep-handleaggeratedop.webp)   
-
-
+* 多签操作处理
+![ep-handleaggeratedop](/image/account-abstraction/ep-handleaggeratedop.webp)   
 
 
 
@@ -31,16 +34,17 @@
 
 > handleOps核心执行步骤；
 1. 校验所有OP的预付gas信息，并解析校验数据，确保聚合地址及时间没有问题（包含账户和paymaster支付两种形式）；
-2. 执行所有OP；在执行的过程中，如果执行revert，则调用payMaster#postOp方法， 并将剩余的gas deposit到EntryPoint；
-3. 补偿所有OP执行的gas fee给Bundler的收益地址；
+2. 执行所有OP；在执行的过程中，非EntryPoint内部错误PostOpMode.postOpReverte（opSucceeded：执行成功，opReverted：实际执行revert），需要返还支付预付金
+3. 待处理完所有UserOperation，补偿消耗的gas费给Bundler；
 
 **handleAggregatedOps执行的核心逻辑和handleOps一样，只不过，增加了批量op的签名检查；**
 
 ## Paymaster
 
-1. TokenPaymaster：基于oracle和swap的paymaster
-* _validatePaymasterUserOp：校验paymaster OP，计算交易需要的token数量，并转账到paymaster；
-* _postOp：执行post任务，比如更新token价格，退还剩余的token，如果由于gas不足revert，超过preGas的，需要补足gas；如果需要则将token swap为weth，并提现，质押到EP；
+> TokenPaymaster：基于oracle和swap实现；关键功能如下：
+1. validatePaymasterUserOp：将所需要支付的gas等价的token从OP发送者转账到paymaster；
+2. postOp：更新token价格，如果由于gas预付资金不足，发送者需要补足gas预发金，充盈的情况下，退还多余预付金；最后如果Paymaster预付金不足，则需要将token转换原生币，deposit到EntryPoint；
+
 
 ## Aggregator
 1. BLSSignatureAggregator：基于BLS账户的签名与签名验证聚合器；
